@@ -1,165 +1,144 @@
-# 🚀 LangGraph Critic-RAG Builder (Autonomous Multi-Agent Content Generator)
+# Proofpost
+
+**Research-grounded, fact-checked technical LinkedIn posts — from topic discovery to a ready-to-publish package.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Orange?style=for-the-badge&logo=chainlink&logoColor=white)](https://github.com/langchain-ai/langgraphjs)
-[![Pinecone](https://img.shields.io/badge/Pinecone-263238?style=for-the-badge&logo=pinecone&logoColor=white)](https://www.pinecone.io/)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-8E75C2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
-[![OpenRouter](https://img.shields.io/badge/OpenRouter-Black?style=for-the-badge&logo=openrouter&logoColor=white)](https://openrouter.ai/)
+[![LangGraph.js](https://img.shields.io/badge/LangGraph.js-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraphjs)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-8E75C2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-000000?style=for-the-badge&logo=openrouter&logoColor=white)](https://openrouter.ai/)
+[![Tavily](https://img.shields.io/badge/Tavily-Search-4B5563?style=for-the-badge)](https://tavily.com/)
 
-An advanced, production-ready **multi-agent content-builder system** powered by **LangGraph** designed to generate high-fidelity, factually accurate technical LinkedIn posts for Software Engineers. It automates the entire pipeline—from niche dispatching and vector database grounding (RAG) to strict code auditing, iterative review loops, and visual asset rendering (code snippets to PNG).
+Proofpost is a multi-agent system built with **LangGraph.js** and **TypeScript** that turns a topic (or a link, or your own notes) into a technical LinkedIn post whose every specific claim — versions, API names, flags, numbers — is backed by a **verbatim quote from a real source**. It also suggests what to post next: three times a week it scans official release feeds and tech news, and hands you a short study guide for each idea so you can learn the topic before writing about it.
 
-To protect accounts from algorithmic penalties and shadowbans typical of direct API publishing, the system operates on a **Human-in-the-Loop** model. It outputs structured publication packages locally, maximizing the creator's **Social Selling Index (SSI)** through high-value manual publishing.
+It was built for a concrete problem: writing an accurate post about a new release used to take me ~2 hours (finding sources, reading, drafting, writing and rendering code, double-checking facts). LLMs make drafting fast, but they confidently invent versions and APIs. Proofpost keeps the speed and removes the guessing.
+
+> Publishing stays manual on purpose (human-in-the-loop): the system writes a local package — post, code images, sources — and you review and publish it.
 
 ---
 
-## 🗺️ Architectural Workflow State Machine
+## What it does
 
-The workflow uses a cyclic state machine built on `@langchain/langgraph`. It ensures that every user command is pre-flight validated, classified, grounded via live web extraction & vector databases (RAG), drafted by domain specialists, and fact-checked by a reviewer before producing visual assets.
+| | |
+|---|---|
+| **Topic discovery** | Reads official feeds (Node.js, React, Next.js, TypeScript, Vite, Flutter, Dart, LangGraph/LangChain, MCP, Google ADK, LiteRT…) and a weekly news search, removes what you already posted, and ranks 5–7 ideas — each with *what it is*, *why it matters*, 2–3 links to study and a suggested angle. Scheduled on macOS (launchd). |
+| **Research, once per run** | Collects sources from your URLs, your pasted notes and/or a Tavily web search (social networks excluded), then builds a **FactSheet**: `{claim, source, verbatim quote, date}`. A deterministic check drops any fact whose quote does not literally appear in its source. |
+| **Writing** | A domain specialist (Flutter/Dart, Node/React, AI engineering) writes from the FactSheet: specific technical claims are allowed **only** if they are in it. Quick (80–150 words) or in-depth posts. |
+| **Fact-checking** | A reviewer from a **different model family** (Claude Sonnet) audits the draft against the same FactSheet and returns surgical corrections (exact wrong text → fix), up to 3 rounds. Without any source, the post is still produced but stamped **NOT VERIFIED**. |
+| **Packaging** | Code snippets become syntax-highlighted PNGs, placeholders are reconciled with the images, and `sources.md` lists every source and quoted fact. |
+| **Cost control** | Each role has its own model chain (Gemini direct → same model via OpenRouter → DeepSeek) with a circuit breaker; every run logs tokens and estimated cost to `usage.json`. |
+
+---
+
+## Architecture
 
 ```mermaid
 graph TD
-    %% Define styles
-    classDef startEnd fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef nodeStyle fill:#b3d9ff,stroke:#005cbf,stroke-width:1.5px,color:#000;
-    classDef decStyle fill:#ffeeba,stroke:#856404,stroke-width:1.5px,color:#000;
-    classDef errorStyle fill:#f8d7da,stroke:#721c24,stroke-width:1.5px,color:#721c24;
+    classDef llm fill:#dbeafe,stroke:#1d4ed8,color:#000;
+    classDef det fill:#dcfce7,stroke:#15803d,color:#000;
+    classDef out fill:#fef3c7,stroke:#b45309,color:#000;
 
-    Start([User Request]) --> PromptOptimizer[1. Prompt Optimizer Node]
-    PromptOptimizer --> Orchestrator[2. Orchestrator Node]
-    Orchestrator --> Classification{Niche Classification}
-    
-    %% Niche Routing
-    Classification -- out_of_scope --> OutOfScope[Graceful Abort & Error Report]
-    OutOfScope --> End([Done])
-    class OutOfScope errorStyle;
-    
-    Classification -- flutter_dart --> FlutterAgent[3. Flutter Specialist]
-    Classification -- node_react --> NodeReactAgent[3. Node/React Specialist]
-    Classification -- ai_engineering --> AIAgent[3. AI Specialist]
-    class PromptOptimizer,FlutterAgent,NodeReactAgent,AIAgent nodeStyle;
-
-    %% Specialists to Reviewer
-    FlutterAgent --> Reviewer[4. Reviewer Fact-Checker]
-    NodeReactAgent --> Reviewer
-    AIAgent --> Reviewer
-    class Reviewer nodeStyle;
-
-    %% Review Loop Decisions
-    Reviewer --> ReviewDecision{Is Approved?}
-    class ReviewDecision decStyle;
-    
-    ReviewDecision -- No (reviewCount < 3) --> IterativeRAG[5. Pinecone Iterative RAG Node]
-    IterativeRAG --> |Update State Context| Classification
-    class IterativeRAG nodeStyle;
-
-    ReviewDecision -- Yes or reviewCount >= 3 (Max Limit) --> ImageExtractor[6. Image Extractor Node]
-    class ImageExtractor nodeStyle;
-
-    ImageExtractor --> Compilation[7. Compilation & Assets Output]
-    Compilation --> End
+    Ideas[["npm run ideas<br/>feeds + news → ranked ideas"]]:::det -.->|--idea N| Start
+    Start([Topic, URLs, notes]) --> Optimizer[Prompt optimizer]:::llm
+    Optimizer --> Orchestrator{Orchestrator<br/>niche + search query}:::llm
+    Orchestrator -- out_of_scope --> Package
+    Orchestrator --> Research[Research<br/>Tavily Extract/Search → FactSheet<br/>+ verbatim-quote check]:::llm
+    Research --> Specialist[Specialist writer<br/>Flutter · Node/React · AI]:::llm
+    Specialist --> Reviewer{Reviewer<br/>fact-check vs FactSheet}:::llm
+    Reviewer -- rejected, &lt; 3 rounds --> Specialist
+    Reviewer -- approved / limit --> Package[Packager<br/>post · code PNGs · sources.md · usage.json]:::out
 ```
 
----
+Research runs **once** and is frozen in the graph state: rewrite rounds reuse it, so the writer and the reviewer always judge against the same evidence.
 
-## 🛠️ Deep Dive: The Multi-Agent Pipeline
+### Model routing
 
-### 1. Pre-flight Prompt Optimizer & Validator (`promptOptimizerNode`)
-* **Goal**: Inspects, sanitizes, and refines incoming raw user prompts before dispatching to the graph.
-* **Contradiction Resolution**: Detects and fixes cross-ecosystem contradictions (e.g., requesting a Flutter/Dart post with a "TypeScript snippet" format).
-* **Noise & Deduplication**: Cleans glued text, redundant priority bullet points, and converts negative prohibitions (*"Do NOT write Python"*) into explicit positive constraints (*"Language: Strictly Dart"*).
-* **Anti-Hallucination Guardrails**: Enforces source-grounding rules and preserves placeholders (`[CODE_SNIPPET_X]`), URLs, and length bounds.
-* **Scope Preservation**: Leaves out-of-scope/casual requests intact so the Orchestrator can handle them properly.
+| Role | Primary | Fallbacks |
+|---|---|---|
+| Optimizer, orchestrator, researcher | Gemini 2.5 Flash (Google API) | Gemini 2.5 Flash via OpenRouter → DeepSeek V4.1 Flash |
+| Writer | Gemini 3.8 Flash (Google API) | Gemini 3.8 Flash via OpenRouter → DeepSeek V4.1 Flash |
+| Reviewer | Claude Sonnet 5.5 via OpenRouter | DeepSeek V4.1 Flash |
 
-### 2. The Dispatcher (Orchestrator)
-* **Goal**: Analyze the optimized prompt and classify it into a technical domain (`flutter_dart`, `node_react`, or `ai_engineering`).
-* **Interception**: If the request is unrelated (e.g. food recipes, off-topic chats), the Orchestrator classifies it as `out_of_scope`, gracefully aborting the execution and writing a detailed explanation to `output/<slug>/error_report.txt`.
-* **Smart Folder Naming**: Generates a succinct folder slug (max 20 characters, e.g., `flutter-shimmer`) based on the topic, optimizing directory structure and preventing OS path length issues (`ENAMETOOLONG`).
-
-### 3. Specialized Content Creation (The Engineers)
-Each specialist agent is configured with domain-specific developer personas, live URL extraction (`webContentService`), and vector retrieval (Pinecone):
-* **Flutter/Dart Specialist**: Focuses on design patterns, widgets, under-the-hood engine rendering, and clean Dart code.
-* **NodeJS/React Specialist**: Tailored for full-stack JavaScript/TypeScript architectures, performance optimization, concurrency, and Event Loop internals.
-* **AI Specialist**: Directed toward LLMs, RAG system design, vector stores, and multi-agent frameworks (e.g., LangGraph).
-
-### 4. Strict Critic-Guided Review Loop (The Auditor)
-A specialized **Technical Fact-Checker** reviews every generated post. It enforces:
-* **Factual Accuracy**: Refuses fabricated framework versions or imaginary APIs.
-* **Code Soundness**: Rejects code snippets containing placeholders like `child: ...` or ellipses (`// ... perform logic`), demanding self-contained, compilable code.
-* **Surgical Corrections**: Produces structured corrections (`originalText`, `issue`, `suggestedReplacement`) while preserving verified text sections.
-
-### 5. Dynamic Iterative RAG (Critic-Guided Retrieval)
-Unlike static RAG systems that query the database only once, this workflow implements **Iterative Retrieval-Augmented Generation**:
-1. If the Reviewer rejects a post, it outputs a targeted search query alongside its critique.
-2. The graph routes back to the Specialist with a **secondary, targeted query to Pinecone**.
-3. The new documentation is merged into the prompt, grounding the Specialist with the correct technical facts.
-
-### 6. Automated Visual Asset Processing
-The system automatically parses all valid code snippets generated by the Specialist and renders them into high-quality syntax-highlighted PNG images using the **Carbonara API** (modeled after Carbon.now.sh). 
+Errors are classified (rate limit, auth, timeout, server, network, parse); a provider that fails with a transient error is skipped for 5 minutes instead of being retried on every node. Any chain can be overridden with `LLM_CHAIN_<ROLE>` in `.env`.
 
 ---
 
-## 🎛️ Technology Stack
+## Measured results
 
-* **LangGraph**: Stateful, multi-agent orchestration via cyclic graphs.
-* **TypeScript / Node.js**: Type-safe development environment.
-* **Pinecone**: High-performance vector database namespace storage.
-* **Google Generative AI Embeddings**: `models/gemini-embedding-001` for converting text to vector space.
-* **LLM Engine**: Advanced reasoning models (e.g., `qwen/qwen3-coder-next`) routed via **OpenRouter** to handle Structured JSON Outputs via Zod schemas.
+From real runs on 2026-11-13 (estimated cost at list prices; Gemini free-tier calls cost nothing):
+
+| | Cost | Wall time |
+|---|---|---|
+| Weekly ideas (37 candidates → 6 ideas) | ~US$ 0.013 | ~1 min |
+| Post approved on the first review | ~US$ 0.05 | ~1 min |
+| Quick post, no URL, one rewrite round | ~US$ 0.085 | ≤ 2 min |
+
+In the last run the reviewer **rejected the first draft because it contradicted the FactSheet** (it described two new features as "graduated to stable"); the rewrite fixed it and was approved.
 
 ---
 
-## 📂 Output Package Structure
+## Usage
 
-Upon completion, a dedicated directory is created under `/output` with a strict 20-character maximum name size:
+Requires **Node.js ≥ 24.10** (macOS for the scheduler and notifications).
 
 ```bash
-output/flutter-shimmer/
-├── linkedin_post.txt    # Optimized LinkedIn post text + hashtags + image annotations
-├── snippet_1.dart       # Original compilable Dart source code
-├── snippet_1.png        # Rendered code image (Dracula theme, Mac window frame)
-├── snippet_2.dart       # Secondary compilable snippet
-└── snippet_2.png        # Rendered secondary code image
+git clone https://github.com/llucasmota/proofpost.git
+cd proofpost
+npm install
+cp .env.example .env   # add your keys
 ```
 
-*Note: If the loop reaches its 3-attempt limit without passing the reviewer's audit, the system saves the last draft in `linkedin_post.txt` but prepends a clear `⚠️ AVISO/WARNING` highlighting that the content did not clear all verification parameters.*
+| Command | What it does |
+|---|---|
+| `npm start` | Interactive menu: write from this week's ideas, write about your own topic, or fetch ideas now. |
+| `npm start -- "Explain the new MediaQuery APIs in Flutter https://…"` | One post from the command line. |
+| `npm start -- "<topic>" --context notes.md --quick` | Add your own notes as a source; short post. You can also paste notes after a `CONTEXTO:` line. |
+| `npm run ideas` | Generate `ideas/YYYY-MM-DD.md` with 5–7 ideas and study links. |
+| `npm start -- --idea 3 --ideas-file ideas/YYYY-MM-DD.json` | Write the post for idea 3 (the ideas file prints this command for you). |
+| `npm run ideas:schedule` / `npm run ideas:unschedule` | Run `ideas` Mon/Wed/Fri at 08:00 via launchd, with a macOS notification. |
+| `npm test` | 184 unit tests, no network. |
 
----
-
-## 🚀 Setup & Installation
-
-### Prerequisites
-* Node.js v20+
-* NPM
-* A running Pinecone Index populated with documentation vectors.
-
-### Environment Configuration
-Create a `.env` file in the root directory:
+### Environment
 
 ```env
-# OpenRouter Config
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-
-# Pinecone Config
-PINECONE_API_KEY=your_pinecone_api_key_here
-PINECONE_INDEX_NAME=your_index_name_here
-
-# Gemini API Config (Embeddings)
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=...          # Google AI Studio (direct, cheapest path)
+OPENROUTER_API_KEY=...      # fallbacks + reviewer
+TAVILY_API_KEY=...          # optional: web research and news (without it, only your URLs/notes are used)
+RESEARCH_SEARCH=auto        # auto | always | never
+IDEAS_LOOKBACK_DAYS=7
 ```
 
-### Install Dependencies
-```bash
-npm install
+### Output
+
+```text
+output/flutter-mediaquery/
+├── linkedin_post.txt   # post + hashtags (warning header if not verified / not approved)
+├── snippet_1.dart      # code referenced by [IMAGE_CODE_1]
+├── snippet_1.png       # rendered image
+├── sources.md          # sources, verified facts with quotes, gaps
+├── usage.json          # tokens and estimated cost per model
+└── run.log             # full log (interactive mode)
 ```
 
-### Run Tests
-The repository features automated unit tests covering pre-flight prompt optimization, orchestrator node classification, out-of-scope interception, and reviewer state routing:
-```bash
-npm test
+---
+
+## Project layout
+
+```text
+src/
+├── graph/          # LangGraph state, nodes (optimizer, orchestrator, research, specialists, reviewer, packager)
+├── research/       # source collection, FactSheet schema, verbatim-quote verification
+├── discovery/      # feeds, history/dedupe, idea ranking, ideas files, scheduler entry point
+├── services/       # LLM providers, fallback chain + circuit breaker, usage tracker, Tavily client
+├── cli/            # argument parser, interactive menu (@clack/prompts)
+├── app/            # runPost: one post end to end, shared by CLI and menu
+└── prompts/v1/     # versioned prompts
+scripts/ideasSchedule.ts   # launchd install/uninstall
+docs/               # technical report, design spec and implementation plan
 ```
 
-### Generate a Post
-Run the system by passing the topic as a command-line argument:
-```bash
-npm start "Explain how dependency injection works in Flutter using Widgetbook"
-```
+## Roadmap
+
+- Compile-check code snippets (`tsc`, `dart analyze`) instead of relying on the LLM reviewer.
+- Claim-by-claim fact-check and a separate editor pass for voice.
+- Few-shot style from my best posts, and in-graph approval steps (`interrupt()` + checkpointer).
+- An evaluation set (~10 topics with rubrics) to measure quality changes between prompt versions.
