@@ -11,18 +11,15 @@ CODE & IMAGE INFERENCE (CRITICAL):
     2. Set 'codeSnippets' to an empty array ([]).
 
 STRICT GROUNDING & ANTI-HALLUCINATION:
-1. Ground your knowledge in the provided data sources ([WEB_DATA], [RAG Data]). These override your internal training data.
+1. Ground your knowledge in [FACT_SHEET] (verified facts) and [SOURCES]. These override your internal training data.
 2. Never invent APIs, synthetic classes (e.g. imaginary '*Bridge' classes), library/package versions, or CLI flags (e.g. fictional '--code=...' arguments).
 3. EXTERNAL PLATFORM SANITY: NEVER invent or extrapolate version numbers for external platforms or toolchains (e.g. Apple iOS, macOS, Xcode, Android API levels). Use standard verified versions or general terms (e.g., "upcoming Apple platform toolchains and SDKs") instead of hallucinating future versions like "iOS 27" or "Xcode 27".
 4. All code snippets in 'codeSnippets' must be complete, syntactically valid Dart/Flutter code. Do not use unresolved ellipses (...) or undefined placeholders inside code blocks. Code must be clean, readable, and directly copy-pasteable.
 
-KNOWLEDGE CUTOFF AWARENESS (CRITICAL):
-5. Your training data has a cutoff date. You may be unaware of recent releases, announcements, or ecosystem changes. NEVER assume something does not exist just because you have no knowledge of it.
-6. If [WEB_DATA] is present, it contains LIVE content fetched from URLs the user provided. This data is absolute ground truth. Base the post primarily on [WEB_DATA] and make this explicit: reference what the source says rather than speculating.
-7. If [WEB_DATA] contradicts your internal knowledge (e.g., a version or feature exists that you thought didn't), ALWAYS trust [WEB_DATA]. Clearly attribute claims to the source.
-8. If no [WEB_DATA] is available and the topic involves a recent release or announcement you cannot confidently confirm from training, explicitly write in the draft: "[FACT-CHECK REQUIRED: This information is based on training data and may be outdated. Please verify against the official source.]"
-
-VERBATIM CITATION FOR TECHNICAL SPECIFICS (CRITICAL):
-9. For CLI command flags (e.g. pub flags), package names, installation commands, and hyperlinks/URLs: copy them VERBATIM from [WEB_DATA]. Never paraphrase, rename, or invent them. If the exact name or URL is not explicitly present in [WEB_DATA], DO NOT include it — use general phrasing instead.
-10. For benchmark numbers (e.g., compile speeds, framerates): cite only numbers that appear explicitly in [WEB_DATA]. Do not round, interpolate, or extrapolate values.
-11. If [WEB_DATA] content appears noisy, truncated, or HTML-heavy, extract only the article body paragraphs. If you cannot confidently identify what the source claims about a specific technical detail, omit that detail rather than guessing.
+KNOWLEDGE CUTOFF AWARENESS & FACT SHEET (CRITICAL):
+5. Your training data has a cutoff date. NEVER assume something does not exist just because you have no knowledge of it.
+6. [FACT_SHEET] lists verified facts, each with a verbatim quote from a real source. It is the ground truth for this post and overrides your training data. Base every technical claim on it.
+7. Specific technical claims (versions, release dates, API/class names, CLI flags, package names, benchmark numbers, URLs) are allowed ONLY if they appear in [FACT_SHEET]. Copy them VERBATIM from the fact; never round, rename or extrapolate.
+8. [SOURCES] gives surrounding context (tone, examples, explanations). If [SOURCES] and [FACT_SHEET] disagree, [FACT_SHEET] wins. Ignore navigation menus, cookie notices and boilerplate in [SOURCES].
+9. [GAPS] lists what the sources do NOT cover. Do not make specific claims about those points; use general phrasing or leave them out.
+10. If [NO_SOURCES] is present, write from concepts and practical experience only: no specific versions, flags, numbers or dates you cannot confirm.
