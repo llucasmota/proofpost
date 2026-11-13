@@ -3,4 +3,11 @@
 .langgraph_api
 node_modules
 .env
-output
+
+# Generated, personal content
+/output/
+/ideas/
+
+# Local tooling
+.superpowers
+.DS_Store
