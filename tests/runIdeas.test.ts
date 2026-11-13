@@ -88,3 +88,23 @@ test('runIdeas', async (t) => {
     assert.deepEqual(notes, ['Nenhuma pauta nova']);
   });
 });
+
+test('runIdeasSafely notifies on failure and still rejects', async () => {
+  const { runIdeasSafely, FAILURE_MESSAGE } = await import('../src/discovery/runIdeas.ts');
+  const { deps, notes } = await setup({ collectFeeds: async () => { throw new Error('offline'); } });
+  await assert.rejects(runIdeasSafely(deps), /offline/);
+  assert.deepEqual(notes, [FAILURE_MESSAGE]);
+  assert.match(FAILURE_MESSAGE, /ideas\/logs\/ideas\.log/);
+});
+
+test('runIdeasSafely passes a successful run through', async () => {
+  const { runIdeasSafely } = await import('../src/discovery/runIdeas.ts');
+  const { deps, notes } = await setup();
+  assert.equal((await runIdeasSafely(deps)).count, 1);
+  assert.deepEqual(notes, ['1 pautas novas']);
+});
+
+test('notifications are titled Proofpost', async () => {
+  const { NOTIFY_TITLE } = await import('../src/discovery/notify.ts');
+  assert.equal(NOTIFY_TITLE, 'Proofpost');
+});
