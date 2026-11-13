@@ -4,6 +4,7 @@ export const OrchestratorOutputSchema = z.object({
   reasoning: z.string().describe("A brief explanation of why this specific niche was chosen based on the user's initial command."),
   niche: z.enum(["flutter_dart", "node_react", "ai_engineering", "out_of_scope"]).describe("The exact technical area the command belongs to, or 'out_of_scope' if it is unrelated to these areas."),
   suggestedFolderSlug: z.string().describe("A very short, succinct folder name (slug) in lowercase with hyphens, representing the topic in max 20 characters. E.g., 'flutter-mediaquery' or 'node-di' or 'ai-agents'."),
+  searchQuery: z.string().describe("A short web search query (3 to 10 words) to find official, up-to-date sources about the topic. Only the subject: no formatting rules, audience or tone. E.g., 'Flutter MediaQuery sizeOf API'."),
 });
 
 export const PromptOptimizerOutputSchema = z.object({
