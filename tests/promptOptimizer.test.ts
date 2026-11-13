@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPromptOptimizerNode } from '../src/graph/nodes/promptOptimizerNode.ts';
-import { createLlmService } from '../src/services/llmProvider.ts';
+import { createRoleServices } from '../src/services/llmProvider.ts';
 import type { GraphState } from '../src/graph/graph.ts';
 
 test('Prompt Optimizer - Pre-flight Sanitation & Refinement', async (t) => {
-  const llmClient = createLlmService();
+  const llmClient = createRoleServices().optimizer;
   const promptOptimizer = createPromptOptimizerNode(llmClient);
 
   await t.test('Deve harmonizar contradição entre Flutter e TypeScript snippet', async () => {

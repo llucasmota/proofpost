@@ -1,37 +1,55 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { config, type ModelConfig } from '../config.ts';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import type { z } from 'zod/v3';
-import { createAgent, providerStrategy } from 'langchain';
-import type { ILlmService, LLMStructuredResult } from './llmService.ts';
+import { openRouterConfig, type OpenRouterConfig } from '../config.ts';
+import {
+  failure,
+  LLM_CALL_TIMEOUT_MS,
+  unwrapStructured,
+  type ILlmService,
+  type LLMStructuredResult,
+  type RawStructured,
+} from './llmService.ts';
 
-export type LLMResponse = {
+export type OpenRouterOptions = {
+  /** OpenRouter model id, e.g. "anthropic/claude-sonnet-5.5". */
   model: string;
-  content: string;
+  /** Omit to use the model's default (required for Claude Sonnet 5.5). */
+  temperature?: number;
+  maxOutputTokens?: number;
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  connection?: OpenRouterConfig;
 };
 
 export class OpenRouterService implements ILlmService {
+  readonly name: string;
+  private readonly model: string;
   private llmClient: ChatOpenAI;
-  private config: ModelConfig;
 
-  constructor(configOverride?: ModelConfig) {
-    this.config = configOverride ?? config;
+  constructor(options: OpenRouterOptions) {
+    const cfg = options.connection ?? openRouterConfig;
+    if (!cfg.apiKey) {
+      console.warn('⚠️ OPENROUTER_API_KEY is not set in environment variables.');
+    }
+    this.model = options.model;
+    this.name = `openrouter:${options.model}`;
 
     this.llmClient = new ChatOpenAI({
-      apiKey: this.config.apiKey,
-      modelName: this.config.models[0],
-      temperature: this.config.temperature,
+      apiKey: cfg.apiKey,
+      model: options.model,
+      // Leaving temperature undefined means it is not sent at all.
+      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+      ...(options.maxOutputTokens ? { maxTokens: options.maxOutputTokens } : {}),
+      maxRetries: 1,
       configuration: {
         baseURL: 'https://openrouter.ai/api/v1',
         defaultHeaders: {
-          'HTTP-Referer': this.config.httpReferer,
-          'X-Title': this.config.xTitle,
+          'HTTP-Referer': cfg.httpReferer,
+          'X-Title': cfg.xTitle,
         },
       },
-
       modelKwargs: {
-        models: this.config.models,
-        provider: this.config.provider,
+        provider: cfg.provider,
+        ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
       },
     });
   }
@@ -42,30 +60,21 @@ export class OpenRouterService implements ILlmService {
     schema: z.ZodSchema<T>,
   ): Promise<LLMStructuredResult<T>> {
     try {
-      const agent = createAgent({
-        model: this.llmClient,
-        tools: [],
-        responseFormat: providerStrategy(schema),
-      });
-
-      const messages = [
-        new SystemMessage(systemPrompt),
-        new HumanMessage(userPrompt),
-      ];
-
-      const data = await agent.invoke({ messages });
-
-      return {
-        success: true,
-        data: data.structuredResponse as T,
-      };
-
+      // Sends `response_format: json_schema`. With `provider.require_parameters` OpenRouter
+      // only routes to providers that honor it.
+      const structured = this.llmClient.withStructuredOutput(schema, { method: 'jsonSchema', includeRaw: true });
+      const result = await structured.invoke(
+        [
+          ['system', systemPrompt],
+          ['user', userPrompt],
+        ],
+        { timeout: LLM_CALL_TIMEOUT_MS },
+      );
+      return unwrapStructured<T>(result as RawStructured, this.name, this.model);
     } catch (error) {
-      console.error('🔴 LLM Error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
+      const result = failure<T>(error, this.name, this.model);
+      console.error(`🔴 [${this.name}] ${result.errorKind}: ${result.error}`);
+      return result;
     }
   }
 }
