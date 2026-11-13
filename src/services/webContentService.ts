@@ -3,7 +3,8 @@
  */
 export function extractUrls(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s"')]+/g;
-  return text.match(urlRegex) ?? [];
+  // "veja https://dart.dev/blog." → drop sentence punctuation stuck to the URL.
+  return (text.match(urlRegex) ?? []).map((u) => u.replace(/[.,;:!?]+$/, ''));
 }
 
 /**
