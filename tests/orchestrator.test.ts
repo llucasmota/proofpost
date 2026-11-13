@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrchestratorNode } from '../src/graph/nodes/orchestratorNode.ts';
-import { OpenRouterService } from '../src/services/openrouterService.ts';
+import { createRoleServices } from '../src/services/llmProvider.ts';
 import type { GraphState } from '../src/graph/graph.ts';
 
 test('Orchestrator - Classificação de Nicho via LLM', async (t) => {
-  const llmClient = new OpenRouterService();
+  const llmClient = createRoleServices().orchestrator;
   const orchestrator = createOrchestratorNode(llmClient);
 
   await t.test('Deve classificar comandos de Flutter/Dart corretamente', async () => {
