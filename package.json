@@ -1,21 +1,30 @@
 {
-  "name": "langgraph-critic-rag-builder",
+  "name": "proofpost",
   "version": "1.0.0",
-  "description": "Agentic Workflow para posts técnicos no LinkedIn",
+  "description": "Research-grounded, fact-checked technical LinkedIn posts with LangGraph.js: topic discovery, FactSheet research, cross-model review.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
     "start": "npx tsx --env-file .env src/index.ts",
-    "test": "node --env-file .env --test tests/**/*.test.ts",
-    "test:watch": "node --env-file .env --test --watch tests/**/*.test.ts",
-    "langgraph:serve": "npx @langchain/langgraph-cli dev"
+    "test": "node --env-file-if-exists=.env --test tests/edgeConditions.test.ts tests/llmProvider.test.ts tests/imageExtractor.test.ts tests/ragService.test.ts tests/config.test.ts tests/snippetPlaceholders.test.ts tests/parseArgs.test.ts tests/tavilyService.test.ts tests/collectSources.test.ts tests/factSheet.test.ts tests/researchNode.test.ts tests/specialistPrompt.test.ts tests/reviewerPrompt.test.ts tests/history.test.ts tests/orchestratorSkip.test.ts tests/sourcesMarkdown.test.ts tests/feeds.test.ts tests/rankIdeas.test.ts tests/ideasFile.test.ts tests/runIdeas.test.ts tests/ideaToRunInput.test.ts tests/ideasSchedule.test.ts tests/menuOptions.test.ts tests/reviewFixes.test.ts",
+    "langgraph:serve": "npx @langchain/langgraph-cli dev",
+    "test:integration": "node --env-file .env --test tests/orchestrator.test.ts tests/promptOptimizer.test.ts",
+    "test:watch": "node --env-file-if-exists=.env --test --watch tests/edgeConditions.test.ts tests/llmProvider.test.ts tests/imageExtractor.test.ts tests/ragService.test.ts tests/config.test.ts tests/snippetPlaceholders.test.ts tests/parseArgs.test.ts tests/tavilyService.test.ts tests/collectSources.test.ts tests/factSheet.test.ts tests/researchNode.test.ts tests/specialistPrompt.test.ts tests/reviewerPrompt.test.ts tests/history.test.ts tests/orchestratorSkip.test.ts tests/sourcesMarkdown.test.ts tests/feeds.test.ts tests/rankIdeas.test.ts tests/ideasFile.test.ts tests/runIdeas.test.ts tests/ideaToRunInput.test.ts tests/ideasSchedule.test.ts tests/menuOptions.test.ts tests/reviewFixes.test.ts",
+    "ideas": "npx tsx --env-file .env src/discovery/cli.ts",
+    "ideas:schedule": "npx tsx scripts/ideasSchedule.ts install",
+    "ideas:unschedule": "npx tsx scripts/ideasSchedule.ts uninstall",
+    "app": "npx tsx --env-file .env src/index.ts"
   },
   "keywords": [
-    "langchain",
     "langgraph",
-    "agentic-workflow",
+    "langchain",
+    "agentic-ai",
+    "fact-checking",
+    "llm",
+    "tavily",
     "openrouter",
-    "pinecone"
+    "gemini",
+    "typescript"
   ],
   "author": "Lucas Mota",
   "license": "MIT",
@@ -28,15 +37,14 @@
     "node": ">=24.10.0"
   },
   "dependencies": {
-    "@langchain/community": "^1.1.14",
+    "@clack/prompts": "^1.9.0",
     "@langchain/core": "^1.2.1",
     "@langchain/google-genai": "^2.3.0",
     "@langchain/langgraph": "^1.4.7",
+    "@langchain/openai": "^1.8.4",
     "@langchain/pinecone": "^0.0.7",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@openrouter/sdk": "^0.8.0",
     "@pinecone-database/pinecone": "^2.2.2",
-    "langchain": "^1.2.21",
+    "fast-xml-parser": "^5.12.1",
     "zod": "^3.23.8"
   }
 }
