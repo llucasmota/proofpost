@@ -2,6 +2,7 @@
 
 **Research-grounded, fact-checked technical LinkedIn posts — from topic discovery to a ready-to-publish package.**
 
+[![CI](https://github.com/llucasmota/proofpost/actions/workflows/ci.yml/badge.svg)](https://github.com/llucasmota/proofpost/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![LangGraph.js](https://img.shields.io/badge/LangGraph.js-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraphjs)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-8E75C2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
@@ -26,6 +27,42 @@ It was built for a concrete problem: writing an accurate post about a new releas
 | **Fact-checking** | A reviewer from a **different model family** (Claude Sonnet) audits the draft against the same FactSheet and returns surgical corrections (exact wrong text → fix), up to 3 rounds. Without any source, the post is still produced but stamped **NOT VERIFIED**. |
 | **Packaging** | Code snippets become syntax-highlighted PNGs, placeholders are reconciled with the images, and `sources.md` lists every source and quoted fact. |
 | **Cost control** | Each role has its own model chain (Gemini direct → same model via OpenRouter → DeepSeek) with a circuit breaker; every run logs tokens and estimated cost to `usage.json`. |
+
+---
+
+## Example: a real run
+
+Input — one line, no URL, quick post:
+
+```bash
+npm start -- "Comment on Google ADK Python 2.14 moving its evaluation and A2A modules to stable" --quick
+```
+
+**1. Research** found 5 sources with Tavily and kept 12 facts whose quotes were verified word-for-word (3 were dropped because the quote was not in the source). Two of them, from `sources.md`:
+
+> **Fact 2.** Google ADK Python 2.14.0 moved execution environments, A2A protocol, evaluation, and core runtime modules from experimental to stable status.
+> *"Google shipped google-adk 2.14.0 on November 7, 2026, graduating the Agent2Agent protocol, execution sandboxes, and core runtime modules from experimental to stable status."*
+>
+> **Fact 8.** Google ADK Python 2.14.0 includes MultiRunConfig for concurrent evaluation runs.
+> *"and MultiRunConfig for running evaluation cases concurrently, both described as new capabilities in this release."*
+
+**2. Review** — the first draft said MultiRunConfig and ToolArgsMatcher had *graduated* to stable. The reviewer rejected it against the FactSheet:
+
+> *"The draft mischaracterizes MultiRunConfig and ToolArgsMatcher as graduated primitives, but the FACT_SHEET says they are new capabilities in 2.14.0."*
+
+**3. Result** — approved on the second round (119 words, ~US$ 0.085, under 2 minutes):
+
+> With Google ADK Python 2.14.0, graduating the Agent2Agent (A2A) protocol and evaluation modules from experimental to stable marks a critical step for production agent engineering.
+>
+> For developers building in Python, two core benefits stand out:
+>
+> 1. Cross-framework stability: A stable A2A specification provides an architectural commitment for agent communication, removing the risk of interface churn across services.
+>
+> 2. Robust CI/CD testing: The stable evaluation module also ships new capabilities, MultiRunConfig for running evaluation cases concurrently and ToolArgsMatcher for semantic argument validation instead of brittle exact string matches.
+>
+> Agent architectures should be treated like distributed systems, with reliable protocol boundaries and regression-resistant evaluation pipelines.
+>
+> How are you testing tool-call arguments in your agent pipelines today?
 
 ---
 
@@ -62,6 +99,24 @@ Errors are classified (rate limit, auth, timeout, server, network, parse); a pro
 
 ---
 
+## Design decisions
+
+**A different model family reviews the writer.** The writer is Gemini; the reviewer is Claude. A model reviewing its own output tends to approve its own blind spots. A second family, with different training data, catches errors the first one is confident about — like the "graduated to stable" mistake above.
+
+**Citations are checked by code, not by another prompt.** Asking an LLM "is this fact supported?" just moves the hallucination one step down. Each fact must carry a quote, and a deterministic check (case-, whitespace- and markdown-insensitive) drops it unless the quote literally appears in the cited source. Facts from a web search are also dropped when the model flags them as contradicting a source the user provided.
+
+**Research runs once and is frozen in state.** Earlier versions re-fetched sources inside every specialist, on every rewrite round, and the reviewer saw a truncated copy. Now the writer and the reviewer judge against exactly the same evidence, and rewrite rounds cost no extra research.
+
+**No sources means "not verified", not "rejected".** When nothing can be found, the reviewer switches to style-only review and the post is saved with a NOT VERIFIED banner — instead of three paid rejection rounds that end with the same unverifiable draft.
+
+**Cheap models do the volume, the expensive one does the judging.** Classification, research and drafting run on Gemini Flash (free tier first, OpenRouter as fallback). Only the review — where a mistake would be published — uses Claude Sonnet — 40–65% of the cost of a measured run.
+
+**Fail fast, then fall back.** LangChain's default of 6 retries on HTTP 429 turned a quota error into minutes of waiting on every node. Providers now get one retry and a timeout; transient failures trip a 5-minute circuit breaker so the rest of the run goes straight to the next provider.
+
+**A human publishes.** The system never posts. It writes a local package (post, code images, sources, cost) for review — the author stays accountable for what goes out under their name.
+
+---
+
 ## Measured results
 
 From real runs on 2026-11-13 (estimated cost at list prices; Gemini free-tier calls cost nothing):
@@ -72,7 +127,7 @@ From real runs on 2026-11-13 (estimated cost at list prices; Gemini free-tier ca
 | Post approved on the first review | ~US$ 0.05 | ~1 min |
 | Quick post, no URL, one rewrite round | ~US$ 0.085 | ≤ 2 min |
 
-In the last run the reviewer **rejected the first draft because it contradicted the FactSheet** (it described two new features as "graduated to stable"); the rewrite fixed it and was approved.
+See [Example: a real run](#example-a-real-run) for the reviewer catching a factual error in the first draft.
 
 ---
 
