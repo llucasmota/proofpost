@@ -71,3 +71,15 @@ export async function runIdeas(deps: IdeasDeps): Promise<{ mdPath: string; count
   await deps.notify(`${ideas.length} pautas novas`);
   return { mdPath, count: ideas.length };
 }
+
+export const FAILURE_MESSAGE = 'Falha ao buscar pautas — veja ideas/logs/ideas.log';
+
+/** Like runIdeas, but a failure also reaches the user as a notification (scheduled runs are unattended). */
+export async function runIdeasSafely(deps: IdeasDeps): ReturnType<typeof runIdeas> {
+  try {
+    return await runIdeas(deps);
+  } catch (e) {
+    await deps.notify(FAILURE_MESSAGE).catch(() => {});
+    throw e;
+  }
+}
