@@ -30,7 +30,6 @@ export const ReviewerOutputSchema = z.object({
   feedback: z.string().describe("If isApproved is false, provide a high-level summary of what is wrong. If true, set to an empty string."),
   approvedContent: z.string().describe("If isApproved is false, copy VERBATIM the sections of the draft that are correct and should be preserved. Separate sections with a blank line. Set to empty string if the entire draft needs rewriting."),
   corrections: z.array(CorrectionItemSchema).describe("If isApproved is false, a structured list of specific corrections. Each item identifies the exact wrong text and its replacement. Set to empty array if the entire draft is approved or fully invalid."),
-  reviewerSearchQuery: z.string().describe("If isApproved is false, generate a targeted 1-sentence search query to find correct technical facts in the database (Pinecone) related to the issues. If true, set to an empty string."),
   postText: z.string().describe("If isApproved is true, provide the final optimized post text in US English. If false, set to an empty string."),
   hashtags: z.array(z.string()).describe("If isApproved is true, provide 3 to 5 highly relevant hashtags. If false, set to an empty array."),
 });
