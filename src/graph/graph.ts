@@ -35,7 +35,6 @@ export const PostStateAnnotation = z.object({
   promptOptimizationSummary: z.string().optional(),
   niche: z.enum(["flutter_dart", "node_react", "ai_engineering", "out_of_scope"]).optional(),
   suggestedFolderSlug: z.string().optional(),
-  reviewerSearchQuery: z.string().optional(),
   mcpContext: z.string().optional(),
   technicalDraft: z.string().optional(),
   codeSnippets: z.array(z.string()).optional(),
