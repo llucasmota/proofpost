@@ -107,6 +107,8 @@ Errors are classified (rate limit, auth, timeout, server, network, parse); a pro
 
 **Research runs once and is frozen in state.** Earlier versions re-fetched sources inside every specialist, on every rewrite round, and the reviewer saw a truncated copy. Now the writer and the reviewer judge against exactly the same evidence, and rewrite rounds cost no extra research.
 
+**Retrieval is live, not a vector store.** An earlier version queried a Pinecone index of documentation. It was dropped: most posts are about releases from the last few days, which a static index never has, and nothing kept it up to date. Retrieval now happens per run — the user's URLs and notes plus a web search — so the evidence is current and every fact points to a page the reader can open.
+
 **No sources means "not verified", not "rejected".** When nothing can be found, the reviewer switches to style-only review and the post is saved with a NOT VERIFIED banner — instead of three paid rejection rounds that end with the same unverifiable draft.
 
 **Cheap models do the volume, the expensive one does the judging.** Classification, research and drafting run on Gemini Flash (free tier first, OpenRouter as fallback). Only the review — where a mistake would be published — uses Claude Sonnet — 40–65% of the cost of a measured run.

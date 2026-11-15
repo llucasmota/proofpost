@@ -64,12 +64,11 @@ export function createReviewerNode(llmClient: ILlmService) {
     }
 
     if (!result.data.isApproved) {
-      console.log(`[Reviewer] Rejected. Reason: ${result.data.feedback} | Surgical corrections: ${result.data.corrections?.length ?? 0} | Approved content preserved: ${result.data.approvedContent ? 'yes' : 'no'} | Suggested RAG Query: ${result.data.reviewerSearchQuery}`);
+      console.log(`[Reviewer] Rejected. Reason: ${result.data.feedback} | Surgical corrections: ${result.data.corrections?.length ?? 0} | Approved content preserved: ${result.data.approvedContent ? 'yes' : 'no'}`);
       return {
         reviewError: '',
         // A rejection with an empty feedback would otherwise be routed as an approval.
         reviewFeedback: result.data.feedback?.trim() || 'Rejected by the reviewer without a summary; see corrections.',
-        reviewerSearchQuery: result.data.reviewerSearchQuery,
         // Always overwrite (never leave undefined) so corrections from a previous round
         // cannot leak into the next one.
         approvedContent: result.data.approvedContent ?? '',
@@ -82,7 +81,6 @@ export function createReviewerNode(llmClient: ILlmService) {
     return {
       reviewError: '',
       reviewFeedback: "",
-      reviewerSearchQuery: "",
       approvedContent: '',
       corrections: [],
       finalPostText: result.data.postText,
